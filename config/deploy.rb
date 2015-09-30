@@ -1,15 +1,32 @@
 lock '3.3.5'
 
 set :application, 'api_through'
-set :repo_url, 'git@github.com:smsohan/api_through.git'
+set :repo_url, 'https://github.com/smsohan/api_through.git'
 
-set :linked_dirs, fetch(:linked_dirs, []).push('secrets')
+set :linked_dirs, ['secrets', 'node_modules']
 SSHKit.config.command_map[:build_and_run] = "#{current_path}/build_and_run.sh"
+set :use_docker, fetch(:use_docker, true)
+set :pty, true
+
+set :application_user, 'root'
+SSHKit.config.command_map.prefix[:chmod].push('sudo')
+
+Rake::Task['deploy:log_revision'].clear_actions
+
+module SSHKit
+  class Command
+    def user(&block)
+      "sudo -E -u #{fetch(:application_user)} #{environment_string + " " unless environment_string.empty?}-- sh -c '%s'" % %Q{#{yield}}
+    end
+  end
+end
 
 namespace :deploy do
 
-  task :build_and_run do
+  task :log_revision do
+  end
 
+  task :docker do
     on roles(:app) do
 
       last_packages = nil
@@ -44,5 +61,28 @@ namespace :deploy do
     end
   end
 
-  after :finished, :build_and_run
+  task :standalone do
+    on roles(:app) do
+      within current_path do
+        execute :npm, "install"
+        as :root do
+          with path: "/bin:/usr/bin:/usr/local/bin" do
+            execute :svc, '-t /service/api_through'
+            # execute :svc -u /service/api_through'
+          end
+        end
+      end
+    end
+  end
+
+  task :restart do
+    if fetch(:use_docker)
+      invoke 'deploy:docker'
+    else
+      invoke 'deploy:standalone'
+    end
+  end
+
+  after :finished, 'deploy:restart'
+
 end

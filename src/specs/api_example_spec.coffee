@@ -193,11 +193,11 @@ describe 'ApiExample', ->
       apiExample.description = 'a'
       apiExample.resource = 'b'
       apiExample.version = 'v1'
-      apiExample.url = '/p/q?a=1'
+      apiExample.action = '/p/q'
 
       digest = apiExample.computeDigest()
 
-      apiExample.url = "/p/q?a=2"
+      apiExample.action = "/p/r"
       digest_2 = apiExample.computeDigest()
 
       expect(digest).not.toEqual(digest_2)
@@ -244,9 +244,18 @@ describe 'ApiExample', ->
 
       expect(apiExample.host).toEqual('some.host')
 
+  describe '#stripResponseBody', ->
+    it 'removes the array items after the first two from the documentation', ->
+      apiExample.responseBody = JSON.stringify([1, 2, 3])
+      apiExample.stripResponseBody()
+      expect(apiExample.strippedResponseBody).toEqual(JSON.stringify([1, 2]))
 
-
-
+    it 'doesnt use the stripped if the header is set to false', ->
+      apiExample.requestHeaders =
+        "x-spy-rest-no-strip": 'true'
+      apiExample.responseBody = JSON.stringify([1, 2, 3])
+      apiExample.stripResponseBody()
+      expect(apiExample.strippedResponseBody).toEqual(undefined)
 
 
 
